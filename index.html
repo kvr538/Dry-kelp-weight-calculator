@@ -6,7 +6,6 @@
     <title>다시마 위판 계산기</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* 숫자 입력창 우측 위아래 화살표(스피너) 제거 */
         input[type="number"]::-webkit-inner-spin-button,
         input[type="number"]::-webkit-outer-spin-button {
             -webkit-appearance: none;
@@ -15,13 +14,25 @@
         input[type="number"] {
             -moz-appearance: textfield;
         }
-        /* 페이드인 애니메이션 */
         .fade-in {
             animation: fadeIn 0.3s ease-in-out;
         }
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(-10px); }
             to { opacity: 1; transform: translateY(0); }
+        }
+        /* 로딩 스피너 애니메이션 */
+        .spinner {
+            border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top: 3px solid white;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
     </style>
 </head>
@@ -33,52 +44,53 @@
             🌊 위판장 초고속 계산기
         </h1>
 
-        <!-- 파레트 개수 선택 -->
+        <div class="mb-4 bg-yellow-50 p-3 rounded-xl border border-yellow-200">
+            <label class="block text-sm font-bold text-gray-700 mb-2">전표 일련번호</label>
+            <input type="number" id="slipNumber" inputmode="numeric" placeholder="전표 좌측 상단 번호 (예: 1)"
+                   class="w-full bg-white border-2 border-yellow-400 rounded-xl px-4 py-3 text-xl font-black focus:outline-none focus:border-blue-500 transition-all text-center">
+        </div>
+
         <div class="mb-6">
-            <div class="grid grid-cols-4 gap-2" id="palletButtons">
-                <!-- 버튼들은 자바스크립트로 생성됨 -->
-            </div>
+            <label class="block text-sm font-bold text-gray-600 mb-2">파레트 개수</label>
+            <div class="grid grid-cols-4 gap-2" id="palletButtons"></div>
         </div>
 
-        <!-- 무게 입력 영역 -->
-        <div id="inputContainer" class="space-y-3 mb-6">
-            <!-- 입력칸들은 자바스크립트로 생성됨 -->
-        </div>
+        <div id="inputContainer" class="space-y-3 mb-6"></div>
 
-        <!-- 결과 표시 또는 계산 버튼 영역 -->
         <div id="resultArea">
-            <button id="calcButton" onclick="calculate()" class="w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold text-xl py-4 rounded-xl shadow-md transition-colors mb-6">
-                결과 확인
+            <button onclick="calculate()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-xl py-4 rounded-xl shadow-md transition-colors mb-6">
+                계산 확인
             </button>
         </div>
 
-        <!-- 초기화 버튼 -->
-        <button onclick="resetApp()" class="w-full bg-gray-700 hover:bg-gray-800 active:bg-gray-900 text-white font-bold text-lg py-4 rounded-xl shadow-md transition-colors mt-2">
-            ↻ 다음 차량 넘어가기
+        <button onclick="resetApp()" class="w-full bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold text-lg py-4 rounded-xl shadow-sm transition-colors mt-2">
+            ↻ 화면만 초기화 (전송 안 함)
         </button>
     </div>
 
     <script>
         let currentPallets = 1;
         const weights = [];
+        let finalTotal = 0;
+        let finalActual = 0;
 
-        // 앱 초기화 및 그리기
+        // 🚨 여기에 방금 복사한 구글 앱스 스크립트 웹 앱 URL을 붙여넣으세요!
+        const GOOGLE_URL = "https://script.google.com/macros/s/AKfycbwJLeutyl1gQK_02Pi_XgIesl9cpjnKOL8PfV6Vz5aaG0ON07qN_cAOj_shElYquHa-qQ/exec"; 
+
         function renderApp() {
             renderPalletButtons();
             renderInputs();
             document.getElementById('resultArea').innerHTML = `
-                <button id="calcButton" onclick="calculate()" class="w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold text-xl py-4 rounded-xl shadow-md transition-colors mb-6">
-                    결과 확인
+                <button onclick="calculate()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-xl py-4 rounded-xl shadow-md transition-colors mb-6">
+                    계산 확인
                 </button>
             `;
-            // 첫 번째 칸 포커스
             setTimeout(() => {
-                const firstInput = document.getElementById('weight-0');
-                if(firstInput) firstInput.focus();
+                const slipInput = document.getElementById('slipNumber');
+                if(slipInput && slipInput.value === '') slipInput.focus();
             }, 100);
         }
 
-        // 파레트 버튼 그리기
         function renderPalletButtons() {
             const container = document.getElementById('palletButtons');
             let html = '';
@@ -92,7 +104,6 @@
             container.innerHTML = html;
         }
 
-        // 입력칸 그리기
         function renderInputs() {
             const container = document.getElementById('inputContainer');
             let html = '';
@@ -112,20 +123,17 @@
             container.innerHTML = html;
         }
 
-        // 파레트 개수 변경
         function setPallets(num) {
             currentPallets = num;
-            weights.length = 0; // 배열 초기화
+            weights.length = 0;
             for(let i=0; i<num; i++) weights.push('');
             renderApp();
         }
 
-        // 무게 값 업데이트
         function updateWeight(index, val) {
             weights[index] = val;
         }
 
-        // 엔터키 처리
         function handleKey(e, index) {
             if (e.key === 'Enter') {
                 e.preventDefault();
@@ -133,14 +141,19 @@
                     document.getElementById(`weight-${index + 1}`).focus();
                 } else {
                     calculate();
-                    document.getElementById(`weight-${index}`).blur(); // 키보드 내림
+                    document.getElementById(`weight-${index}`).blur();
                 }
             }
         }
 
-        // 계산 실행
         function calculate() {
-            // 빈칸 체크
+            const slipNumber = document.getElementById('slipNumber').value;
+            if (!slipNumber) {
+                alert('전표 일련번호를 먼저 입력해주세요!');
+                document.getElementById('slipNumber').focus();
+                return;
+            }
+
             for (let i = 0; i < currentPallets; i++) {
                 if (weights[i] === '' || weights[i] === undefined) {
                     alert('모든 계근 값을 입력해주세요!');
@@ -148,65 +161,96 @@
                 }
             }
 
-            let total = 0;
+            finalTotal = 0;
             for (let i = 0; i < currentPallets; i++) {
-                total += parseFloat(weights[i]) || 0;
+                finalTotal += parseFloat(weights[i]) || 0;
             }
             
             const palletDeduction = currentPallets * 35;
-            const netWeight = total - palletDeduction;
-            const actualCalculated = netWeight * 0.95;
-            const actual = Math.floor(actualCalculated);
+            const netWeight = finalTotal - palletDeduction;
+            finalActual = Math.floor(netWeight * 0.95);
 
-            // 결과 화면 그리기 (계산 과정 추가됨)
             const resultHtml = `
                 <div class="bg-blue-50 border-2 border-blue-500 rounded-xl p-5 mb-4 shadow-inner fade-in">
-                    
-                    <div class="flex justify-between items-center mb-3">
-                        <span class="text-gray-600 font-bold text-lg">총중량</span>
-                        <span class="text-2xl font-black text-gray-800">
-                            ${total.toLocaleString()} <span class="text-lg">kg</span>
-                        </span>
+                    <div class="text-center mb-3 pb-3 border-b border-blue-200">
+                        <span class="text-sm font-bold text-gray-500">전표 번호</span>
+                        <div class="text-2xl font-black text-blue-800">No. ${slipNumber}</div>
                     </div>
-
-                    <!-- 계산 과정 박스 -->
-                    <div class="bg-white rounded-lg p-3 my-4 text-sm text-gray-500 border border-blue-200">
-                        <div class="flex justify-between mb-1">
-                            <span>파레트 감량:</span>
-                            <span>${currentPallets}개 × 35kg = -${palletDeduction}kg</span>
-                        </div>
-                        <div class="flex justify-between mb-1">
-                            <span>순수 무게:</span>
-                            <span>${total} - ${palletDeduction} = ${netWeight}kg</span>
-                        </div>
-                        <div class="flex justify-between font-semibold text-gray-600 border-t border-dashed mt-2 pt-2">
-                            <span>적용 수식:</span>
-                            <span>${netWeight} × 0.95 = ${actualCalculated}</span>
-                        </div>
+                    
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="text-gray-600 font-bold">총중량</span>
+                        <span class="text-xl font-black text-gray-800">${finalTotal.toLocaleString()} kg</span>
                     </div>
                     
                     <div class="flex justify-between items-center pt-3 border-t border-blue-300">
                         <span class="text-blue-700 font-bold text-xl">실중량 (내림)</span>
-                        <span class="text-4xl font-black text-blue-700">
-                            ${actual.toLocaleString()} <span class="text-xl">kg</span>
-                        </span>
+                        <span class="text-4xl font-black text-blue-700">${finalActual.toLocaleString()} <span class="text-xl">kg</span></span>
                     </div>
-
                 </div>
+
+                <button id="sendBtn" onclick="sendDataToGoogle()" class="w-full bg-green-600 hover:bg-green-700 text-white font-black text-xl py-5 rounded-xl shadow-lg transition-colors mb-4 flex justify-center items-center gap-2">
+                    <span id="sendText">✅ 엑셀에 저장하고 다음</span>
+                </button>
             `;
             document.getElementById('resultArea').innerHTML = resultHtml;
         }
 
-        // 다음 차량 (초기화)
+        // 실제 구글 시트로 데이터 전송!
+        function sendDataToGoogle() {
+            const slipNumber = document.getElementById('slipNumber').value;
+            const btn = document.getElementById('sendBtn');
+            const btnText = document.getElementById('sendText');
+            
+            // 전송 중 버튼 UI 변경 (스피너 표시)
+            btn.disabled = true;
+            btn.classList.remove('bg-green-600', 'hover:bg-green-700');
+            btn.classList.add('bg-gray-500');
+            btnText.innerHTML = '<div class="spinner"></div> 저장 중...';
+
+            const payload = {
+                slipNumber: slipNumber,
+                totalWeight: finalTotal,
+                actualWeight: finalActual
+            };
+
+            fetch(GOOGLE_URL, {
+                method: 'POST',
+                mode: 'no-cors', // CORS 보안 에러 우회
+                headers: {
+                    'Content-Type': 'text/plain;charset=utf-8',
+                },
+                body: JSON.stringify(payload)
+            }).then(() => {
+                // 전송 성공 시 화면 리셋
+                document.getElementById('slipNumber').value = '';
+                resetApp();
+            }).catch(err => {
+                alert('전송 중 오류가 발생했습니다 인터넷 연결을 확인해주세요.');
+                // 에러 나면 버튼 원상복구
+                btn.disabled = false;
+                btn.classList.remove('bg-gray-500');
+                btn.classList.add('bg-green-600', 'hover:bg-green-700');
+                btnText.innerHTML = '✅ 엑셀에 저장하고 다음';
+            });
+        }
+
         function resetApp() {
             weights.length = 0;
             for(let i=0; i<currentPallets; i++) weights.push('');
             renderApp();
         }
 
-        // 시작할 때 초기화
         setPallets(1);
-
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            const slipInput = document.getElementById('slipNumber');
+            slipInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    document.getElementById('weight-0').focus();
+                }
+            });
+        });
     </script>
 </body>
 </html>
