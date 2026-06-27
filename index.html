@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>다시마 중량 계산기</title>
+    <title>다시마 위판 계산기</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         /* 숫자 입력창 우측 위아래 화살표(스피너) 제거 */
@@ -30,7 +30,7 @@
     <div class="w-full max-w-md bg-white rounded-2xl shadow-lg p-5 mt-2">
         
         <h1 class="text-2xl font-bold text-center text-blue-700 mb-6">
-            🌊 다시마 중량 계산기
+            🌊 위판장 초고속 계산기
         </h1>
 
         <!-- 파레트 개수 선택 -->
@@ -153,23 +153,45 @@
                 total += parseFloat(weights[i]) || 0;
             }
             
-            const actual = Math.floor((total - (currentPallets * 35)) * 0.95);
+            const palletDeduction = currentPallets * 35;
+            const netWeight = total - palletDeduction;
+            const actualCalculated = netWeight * 0.95;
+            const actual = Math.floor(actualCalculated);
 
-            // 결과 화면 그리기
+            // 결과 화면 그리기 (계산 과정 추가됨)
             const resultHtml = `
                 <div class="bg-blue-50 border-2 border-blue-500 rounded-xl p-5 mb-4 shadow-inner fade-in">
+                    
                     <div class="flex justify-between items-center mb-3">
                         <span class="text-gray-600 font-bold text-lg">총중량</span>
                         <span class="text-2xl font-black text-gray-800">
                             ${total.toLocaleString()} <span class="text-lg">kg</span>
                         </span>
                     </div>
+
+                    <!-- 계산 과정 박스 -->
+                    <div class="bg-white rounded-lg p-3 my-4 text-sm text-gray-500 border border-blue-200">
+                        <div class="flex justify-between mb-1">
+                            <span>파레트 감량:</span>
+                            <span>${currentPallets}개 × 35kg = -${palletDeduction}kg</span>
+                        </div>
+                        <div class="flex justify-between mb-1">
+                            <span>순수 무게:</span>
+                            <span>${total} - ${palletDeduction} = ${netWeight}kg</span>
+                        </div>
+                        <div class="flex justify-between font-semibold text-gray-600 border-t border-dashed mt-2 pt-2">
+                            <span>적용 수식:</span>
+                            <span>${netWeight} × 0.95 = ${actualCalculated}</span>
+                        </div>
+                    </div>
+                    
                     <div class="flex justify-between items-center pt-3 border-t border-blue-300">
-                        <span class="text-blue-700 font-bold text-xl">실중량</span>
+                        <span class="text-blue-700 font-bold text-xl">실중량 (내림)</span>
                         <span class="text-4xl font-black text-blue-700">
                             ${actual.toLocaleString()} <span class="text-xl">kg</span>
                         </span>
                     </div>
+
                 </div>
             `;
             document.getElementById('resultArea').innerHTML = resultHtml;
